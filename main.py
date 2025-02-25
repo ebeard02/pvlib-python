@@ -30,5 +30,4 @@ Inverter Params:  {system.inverter_parameters}
 
 DC Power:  {pdc}
 
-
       ''')
