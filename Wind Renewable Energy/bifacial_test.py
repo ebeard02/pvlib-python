@@ -47,12 +47,15 @@ sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
 # set up figure for plot
 figure, axis = plt.subplots(len(locations_df['name']),1)
 
+max_pwr = ''
+
 for index, site in locations_df.iterrows():
 
     lat = site['latitude']
     lon = site['longitude']
     tz = site['timezone']
-    times = pd.date_range('2021-06-21', '2021-6-22', freq='1min', tz=tz)
+    # times = pd.date_range('2021-06-21', '2021-6-22', freq='1min', tz=tz)
+    times = pd.date_range('2024-03-1', '2024-03-2', freq='1h', tz=tz)
 
     # create a location for site, and get solar position and clearsky data
     site_location = location.Location(lat, lon, tz=tz, name = site['name'])
@@ -80,7 +83,6 @@ for index, site in locations_df.iterrows():
                                 n_pvrows=3,
                                 index_observed_pvrow=1
                                 )
-
 
     # dc arrays
     array = pvsystem.Array(mount=sat_mount,
@@ -121,5 +123,19 @@ for index, site in locations_df.iterrows():
     axis[index].set_ylabel('AC Power (W)')
     axis[index].set_xlabel('Time')
 
+    # print max values
+    bpv_max = round(max(mc_bpv.results.ac),2)
+    mpv_max = round(max(mc_mpv.results.ac),2)
+    perc_diff = round(abs((max(mc_mpv.results.ac)-max(mc_bpv.results.ac))/max(mc_bpv.results.ac)*100),2)
+    max_pwr += f'\n{site_location.name}\tBifacial Max: {bpv_max}W\tMonofacial Max: {mpv_max}W\t Percent Difference: {perc_diff}%'
+
+print(f'''
+      
+SIMULATION RESULTS
+---------------------------------------------------------------------------------------------------------------------------------------
+{max_pwr}
+
+----------------------------------------------------------------------------------------------------------------------------------------
+      ''')
 plt.tight_layout()
 plt.show()
