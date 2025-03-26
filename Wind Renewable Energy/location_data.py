@@ -52,7 +52,8 @@ sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
                                             gcr=gcr)
 
 # set up figure for plot
-figure, axis = plt.subplots(len(locations_df['name']),1)
+fig1, axis1 = plt.subplots(len(locations_df['name']),1)
+fig2, axis2 = plt.subplots(len(locations_df['name']),1)
 
 # output setup
 data = []
@@ -146,10 +147,15 @@ for index, site in locations_df.iterrows():
                                ).fillna(0)
 
     # plot results
-    axis[index].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
-    axis[index].set_title(site_location.name)
-    axis[index].set_ylabel('AC Power (W)')
-    axis[index].set_xlabel('Time')
+    axis1[index].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
+    axis1[index].set_title(site_location.name)
+    axis1[index].set_ylabel('AC Power (W)')
+    axis1[index].set_xlabel('Time')
+
+    axis2[index].plot(times, bpv_dc, 'r', times, mpv_dc, 'b')
+    axis2[index].set_title(site_location.name)
+    axis2[index].set_ylabel('DC Power (W)')
+    axis2[index].set_xlabel('Time')
 
     # print AC max values
     bpv_max_ac = round(max(bpv_ac.results.ac),2)
@@ -188,5 +194,12 @@ Output Table:
 
 -------------------------------------------------------------------------------------------------------------------------------------------------
       ''')
-plt.tight_layout()
+
+fig1.suptitle("AC Results")
+fig1.tight_layout()
+fig2.suptitle("DC Results")
+fig2.tight_layout()
+
 plt.show()
+
+
