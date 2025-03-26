@@ -6,6 +6,7 @@ from pvlib.temperature import TEMPERATURE_MODEL_PARAMETERS as PARAMS
 from pvlib.bifacial.pvfactors import pvfactors_timeseries
 import warnings
 import matplotlib.pyplot as plt
+from pvlib import temperature
 
 # supressing shapely warnings that occur on import of pvfactors
 warnings.filterwarnings(action='ignore', module='pvfactors')
@@ -19,7 +20,8 @@ locations = {
 }
 
 # create system locations and times as dataframes
-locations_df = pd.DataFrame(locations)
+# locations_df = pd.read_excel('module_data.xlsx', sheet_name='locations')
+locations_df = pd.DataFrame.from_dict(locations)
 
 # create site system characteristics
 axis_tilt = 0
@@ -31,12 +33,18 @@ pvrow_width = 4
 albedo = 0.2
 bifaciality = 0.75
 
+# pvsystem parameters for DC outputs
+pdc0 = 250
+gamma_pdc = -0.0043
+
 # load temperature parameters and module/inverter specifications
 temp_model_parameters = PARAMS['sapm']['open_rack_glass_glass']
 cec_modules = pvsystem.retrieve_sam('CECMod')
-cec_module = cec_modules['Trina_Solar_TSM_300DEG5C_07_II_']
+# cec_module = cec_modules['Trina_Solar_TSM_300DEG5C_07_II_']
+cec_module = cec_modules['Zytech_Solar_ZT320P']
 cec_inverters = pvsystem.retrieve_sam('cecinverter')
-cec_inverter = cec_inverters['ABB__MICRO_0_25_I_OUTD_US_208__208V_']
+# cec_inverter = cec_inverters['ABB__MICRO_0_25_I_OUTD_US_208__208V_']
+cec_inverter = cec_inverters['iPower__SHO_5_2__240V_']
 
 sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
                                             axis_azimuth=axis_azimuth,
@@ -84,29 +92,41 @@ for index, site in locations_df.iterrows():
                                 index_observed_pvrow=1
                                 )
 
+    # turn into pandas DataFrame
+    irrad = pd.concat(irrad, axis=1)
+
     # dc arrays
     array = pvsystem.Array(mount=sat_mount,
                         module_parameters=cec_module,
                         temperature_model_parameters=temp_model_parameters)
 
     # create system object
-    system = pvsystem.PVSystem(arrays=[array],
-                            inverter_parameters=cec_inverter)
+    system = pvsystem.PVSystem(arrays=[array], 
+                               inverter_parameters=cec_inverter)
     
-    # turn into pandas DataFrame
-    irrad = pd.concat(irrad, axis=1)
-
     # create bifacial effective irradiance using aoi-corrected timeseries values
     irrad['effective_irradiance'] = (
         irrad['total_abs_front'] + (irrad['total_abs_back'] * bifaciality)
     )
 
+    # get cell temperature using the Faiman model for bifacial irradiance
+    temp_cell = temperature.faiman(irrad['effective_irradiance'], temp_air=25,
+                               wind_speed=1)
+
     # ModelChain requires the parameter aoi_loss to have a value. pvfactors
     # applies surface reflection models in the calculation of front and back
     # irradiance, so assign aoi_model='no_loss' to avoid double counting
     # reflections.
-    mc_bpv = modelchain.ModelChain(system, site_location, aoi_model='no_loss')
-    mc_bpv.run_model_from_effective_irradiance(irrad)
+    bpv_ac = modelchain.ModelChain(system, site_location, aoi_model='no_loss')
+    bpv_ac.run_model_from_effective_irradiance(irrad)
+
+    # DC results using pvsystem
+    bpv_dc = pvsystem.pvwatts_dc(irrad['effective_irradiance'],
+                               temp_cell,
+                               pdc0,
+                               gamma_pdc=gamma_pdc
+                               ).fillna(0)
+
 
     # create irradiance for front face only
     # aoi value is set to 'physical' in this case
@@ -114,25 +134,45 @@ for index, site in locations_df.iterrows():
         irrad['total_abs_front']
     )
 
-    mc_mpv = modelchain.ModelChain(system, site_location, aoi_model='physical' )
-    mc_mpv.run_model_from_effective_irradiance(irrad)
+    # AC results for monofacial panel
+    mpv_ac = modelchain.ModelChain(system, site_location, aoi_model='physical')
+    mpv_ac.run_model_from_effective_irradiance(irrad)
+
+    # DC results for monofacial panel
+    mpv_dc = pvsystem.pvwatts_dc(irrad['effective_irradiance'],
+                               temp_cell,
+                               pdc0,
+                               gamma_pdc=gamma_pdc
+                               ).fillna(0)
 
     # plot results
-    axis[index].plot(times, mc_bpv.results.ac, 'r', times, mc_mpv.results.ac, 'b')
+    axis[index].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
     axis[index].set_title(site_location.name)
     axis[index].set_ylabel('AC Power (W)')
     axis[index].set_xlabel('Time')
 
-    # print max values
-    bpv_max = round(max(mc_bpv.results.ac),2)
-    mpv_max = round(max(mc_mpv.results.ac),2)
-    perc_diff = round(abs((max(mc_mpv.results.ac)-max(mc_bpv.results.ac))/max(mc_bpv.results.ac)*100),2)
-    max_pwr += f'\n{site_location.name}\tBifacial Max: {bpv_max}W\tMonofacial Max: {mpv_max}W\t Percent Difference: {perc_diff}%'
+    # print AC max values
+    bpv_max_ac = round(max(bpv_ac.results.ac),2)
+    mpv_max_ac = round(max(mpv_ac.results.ac),2)
+    perc_diff_ac = round(abs(bpv_max_ac-mpv_max_ac)/bpv_max_ac*100,2)
+    max_pwr += f'\n{site_location.name}\tBifacial Max: {bpv_max_ac}W\tMonofacial Max: {mpv_max_ac}W\t Percent Difference: {perc_diff_ac}%'
+
+    # print DC max values 
+    bpv_max_dc = round(max(bpv_dc),2)
+    mpv_max_dc = round(max(mpv_dc),2)
+    perc_diff_dc = round(abs(mpv_max_dc-bpv_max_dc)/bpv_max_dc*100,2)
+    max_pwr += f'\tBifacial Max: {bpv_max_dc}W\tMonofacial Max: {mpv_max_dc}W\t Percent Difference: {perc_diff_dc}%'
+
 
 print(f'''
       
 SIMULATION RESULTS
 ---------------------------------------------------------------------------------------------------------------------------------------
+
+Input Table:
+{locations_df}
+
+Output Table:
 {max_pwr}
 
 ----------------------------------------------------------------------------------------------------------------------------------------
