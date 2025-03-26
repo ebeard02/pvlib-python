@@ -12,16 +12,16 @@ from pvlib import temperature
 warnings.filterwarnings(action='ignore', module='pvfactors')
 
 # create site location and times characteristics
-locations = {
-    'latitude': [58.4546, -26.3167, -0.0206],
-    'longitude': [-134.1739, 31.1333, 109.3414],
-    'timezone': ['America/Juneau', 'Africa/Mbabane', 'Asia/Pontianak'],
-    'name': ['Juneau, Alaska (USA)', 'Mbabane, Eswatini', 'Pontianak, Indonesia']
-}
+# locations = {
+#     'latitude': [58.4546, -26.3167, -0.0206],
+#     'longitude': [-134.1739, 31.1333, 109.3414],
+#     'timezone': ['America/Juneau', 'Africa/Mbabane', 'Asia/Pontianak'],
+#     'name': ['Juneau, Alaska (USA)', 'Mbabane, Eswatini', 'Pontianak, Indonesia']
+# }
 
 # create system locations and times as dataframes
-# locations_df = pd.read_excel('module_data.xlsx', sheet_name='locations')
-locations_df = pd.DataFrame.from_dict(locations)
+locations_df = pd.read_excel('module_data.xlsx', sheet_name='locations')
+# locations_df = pd.DataFrame.from_dict(locations)
 
 # create site system characteristics
 axis_tilt = 0
@@ -34,16 +34,15 @@ albedo = 0.2
 bifaciality = 0.75
 
 # pvsystem parameters for DC outputs
-pdc0 = 250
+# pdc0 is based on panel parameters at STC
+pdc0 = 320
 gamma_pdc = -0.0043
 
 # load temperature parameters and module/inverter specifications
 temp_model_parameters = PARAMS['sapm']['open_rack_glass_glass']
 cec_modules = pvsystem.retrieve_sam('CECMod')
-# cec_module = cec_modules['Trina_Solar_TSM_300DEG5C_07_II_']
 cec_module = cec_modules['Zytech_Solar_ZT320P']
 cec_inverters = pvsystem.retrieve_sam('cecinverter')
-# cec_inverter = cec_inverters['ABB__MICRO_0_25_I_OUTD_US_208__208V_']
 cec_inverter = cec_inverters['iPower__SHO_5_2__240V_']
 
 sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
@@ -55,7 +54,9 @@ sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
 # set up figure for plot
 figure, axis = plt.subplots(len(locations_df['name']),1)
 
-max_pwr = ''
+# output setup
+data = []
+output_df = pd.DataFrame(data) 
 
 for index, site in locations_df.iterrows():
 
@@ -127,7 +128,6 @@ for index, site in locations_df.iterrows():
                                gamma_pdc=gamma_pdc
                                ).fillna(0)
 
-
     # create irradiance for front face only
     # aoi value is set to 'physical' in this case
     irrad['effective_irradiance'] = (
@@ -155,27 +155,38 @@ for index, site in locations_df.iterrows():
     bpv_max_ac = round(max(bpv_ac.results.ac),2)
     mpv_max_ac = round(max(mpv_ac.results.ac),2)
     perc_diff_ac = round(abs(bpv_max_ac-mpv_max_ac)/bpv_max_ac*100,2)
-    max_pwr += f'\n{site_location.name}\tBifacial Max: {bpv_max_ac}W\tMonofacial Max: {mpv_max_ac}W\t Percent Difference: {perc_diff_ac}%'
+
+    temp_df_ac = pd.DataFrame({
+                            'Site Location': [site_location.name],
+                            'Max BPV Power AC (W)': [bpv_max_ac],
+                            'Max MPV Power AC (W)': [mpv_max_ac],
+                            'Percent Difference (%)': [perc_diff_ac]})
 
     # print DC max values 
     bpv_max_dc = round(max(bpv_dc),2)
     mpv_max_dc = round(max(mpv_dc),2)
     perc_diff_dc = round(abs(mpv_max_dc-bpv_max_dc)/bpv_max_dc*100,2)
-    max_pwr += f'\tBifacial Max: {bpv_max_dc}W\tMonofacial Max: {mpv_max_dc}W\t Percent Difference: {perc_diff_dc}%'
 
+    temp_df_dc = pd.DataFrame({
+                            'Max BPV Power DC (W)': [bpv_max_dc],
+                            'Max MPV Power DC (W)': [mpv_max_dc],
+                            'Percent Difference (%)': [perc_diff_dc]})
+    
+    horizontal_concat = pd.concat([temp_df_ac, temp_df_dc], axis=1)
+    output_df = pd.concat([output_df,horizontal_concat])
 
 print(f'''
       
 SIMULATION RESULTS
----------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
 
 Input Table:
 {locations_df}
 
 Output Table:
-{max_pwr}
+{output_df}
 
-----------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
       ''')
 plt.tight_layout()
 plt.show()
