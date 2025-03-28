@@ -211,6 +211,7 @@ fig1.tight_layout()
 fig2.suptitle("DC Results")
 fig2.tight_layout()
 
+plt.xticks([])
 plt.show()
 
 
