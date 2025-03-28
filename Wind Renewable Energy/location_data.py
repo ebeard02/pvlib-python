@@ -7,6 +7,7 @@ from pvlib.bifacial.pvfactors import pvfactors_timeseries
 import warnings
 import matplotlib.pyplot as plt
 from pvlib import temperature
+import math
 
 # supressing shapely warnings that occur on import of pvfactors
 warnings.filterwarnings(action='ignore', module='pvfactors')
@@ -52,8 +53,10 @@ sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
                                             gcr=gcr)
 
 # set up figure for plot
-fig1, axis1 = plt.subplots(len(locations_df['name']),1)
-fig2, axis2 = plt.subplots(len(locations_df['name']),1)
+fig1, axis1 = plt.subplots(4,math.ceil(len(locations_df['name'])/4))
+fig2, axis2 = plt.subplots(4,math.ceil(len(locations_df['name'])/4))
+col = 0
+row = 0
 
 # output setup
 data = []
@@ -64,6 +67,7 @@ for index, site in locations_df.iterrows():
     lat = site['latitude']
     lon = site['longitude']
     tz = site['timezone']
+
     # times = pd.date_range('2021-06-21', '2021-6-22', freq='1min', tz=tz)
     times = pd.date_range('2024-03-1', '2024-03-2', freq='1h', tz=tz)
 
@@ -147,15 +151,22 @@ for index, site in locations_df.iterrows():
                                ).fillna(0)
 
     # plot results
-    axis1[index].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
-    axis1[index].set_title(site_location.name)
-    axis1[index].set_ylabel('AC Power (W)')
-    axis1[index].set_xlabel('Time')
+    if index % 4 == 0 and index != 0:
+        col += 1
+        row = 0
 
-    axis2[index].plot(times, bpv_dc, 'r', times, mpv_dc, 'b')
-    axis2[index].set_title(site_location.name)
-    axis2[index].set_ylabel('DC Power (W)')
-    axis2[index].set_xlabel('Time')
+    # plot results
+    axis1[row,col].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
+    axis1[row,col].set_title(site_location.name)
+    axis1[row,col].set_ylabel('AC Power (W)')
+    axis1[row,col].set_xlabel('Time')
+
+    axis2[row,col].plot(times, bpv_dc, 'r', times, mpv_dc, 'b')
+    axis2[row,col].set_title(site_location.name)
+    axis2[row,col].set_ylabel('DC Power (W)')
+    axis2[row,col].set_xlabel('Time')
+
+    row += 1
 
     # print AC max values
     bpv_max_ac = round(max(bpv_ac.results.ac),2)

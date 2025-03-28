@@ -7,6 +7,7 @@ from pvlib.bifacial.pvfactors import pvfactors_timeseries
 import warnings
 import matplotlib.pyplot as plt
 from pvlib import temperature
+import math
 
 # supressing shapely warnings that occur on import of pvfactors
 warnings.filterwarnings(action='ignore', module='pvfactors')
@@ -14,7 +15,7 @@ warnings.filterwarnings(action='ignore', module='pvfactors')
 # using Greensboro, NC for this example
 lat, lon = 36.084, -79.817
 tz = 'Etc/GMT+5'
-times = pd.date_range('2021-06-21', '2021-06-22', freq='1T', tz=tz)
+times = pd.date_range('2021-06-21', '2021-06-22', freq='1h', tz=tz)
 
 # create location object and get clearsky data
 site_location = location.Location(lat, lon, tz=tz, name='Greensboro, NC')
@@ -50,9 +51,16 @@ sat_mount = pvsystem.SingleAxisTrackerMount(axis_tilt=axis_tilt,
                                             backtrack=True,
                                             gcr=gcr)
 
+solar_position = site_location.get_solarposition(times)
+
+orientation = sat_mount.get_orientation(solar_position['apparent_zenith'],
+                                        solar_position['azimuth'])
+
 # set up figure for plot
-fig1, axis1 = plt.subplots(len(albedos_df['Substance or Surface']),1)
-fig2, axis2 = plt.subplots(len(albedos_df['Substance or Surface']),1)
+fig1, axis1 = plt.subplots(4,math.ceil(len(albedos_df['Albedo'])/4))
+fig2, axis2 = plt.subplots(4,math.ceil(len(albedos_df['Albedo'])/4))
+col = 0
+row = 0
 
 # output setup
 data = []
@@ -60,16 +68,8 @@ output_df = pd.DataFrame(data)
 
 for index, site in albedos_df.iterrows():
 
+    site_name = site['Substance or Surface']
     albedo = site['Albedo']
-    times = pd.date_range('2024-03-1', '2024-03-2', freq='1h', tz=tz)
-
-    # create a location for site, and get solar position and clearsky data
-    site_location = location.Location(lat, lon, tz=tz, name = site['Substance or Surface'])
-    solar_position = site_location.get_solarposition(times)
-    cs = site_location.get_clearsky(times)
-
-    orientation = sat_mount.get_orientation(solar_position['apparent_zenith'],
-                                        solar_position['azimuth'])
 
     # get rear and front side irradiance from pvfactors transposition engine
     # explicity simulate on pvarray with 3 rows, with sensor placed in middle row
@@ -142,17 +142,6 @@ for index, site in albedos_df.iterrows():
                                gamma_pdc=gamma_pdc
                                ).fillna(0)
 
-    # plot results
-    axis1[index].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
-    axis1[index].set_title(albedo)
-    axis1[index].set_ylabel('AC Power (W)')
-    axis1[index].set_xlabel('Time')
-
-    axis2[index].plot(times, bpv_dc, 'r', times, mpv_dc, 'b')
-    axis2[index].set_title(albedo)
-    axis2[index].set_ylabel('DC Power (W)')
-    axis2[index].set_xlabel('Time')
-
     # print AC max values
     bpv_max_ac = round(max(bpv_ac.results.ac),2)
     mpv_max_ac = round(max(mpv_ac.results.ac),2)
@@ -177,6 +166,23 @@ for index, site in albedos_df.iterrows():
     horizontal_concat = pd.concat([temp_df_ac, temp_df_dc], axis=1)
     output_df = pd.concat([output_df,horizontal_concat])
 
+    # plot results
+    if index % 4 == 0 and index != 0:
+        col += 1
+        row = 0
+    
+    axis1[row,col].plot(times,bpv_ac.results.ac,'r',times,mpv_ac.results.ac,'b')
+    axis1[row,col].set_title(f'{site_name}: {albedo}')
+    axis1[row,col].set_ylabel('AC Power (W)')
+    axis1[row,col].set_xlabel('Time')
+
+    axis2[row,col].plot(times,bpv_dc,'r',times,mpv_dc,'b')
+    axis2[row,col].set_title(f'{site_name}: {albedo}')
+    axis2[row,col].set_ylabel('AC Power (W)')
+    axis2[row,col].set_xlabel('Time')
+
+    row += 1
+
 print(f'''
       
 SIMULATION RESULTS
@@ -190,6 +196,7 @@ Output Table:
 
 -------------------------------------------------------------------------------------------------------------------------------------------------
       ''')
+
 
 fig1.suptitle("AC Results")
 fig1.tight_layout()
