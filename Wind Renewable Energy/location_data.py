@@ -69,7 +69,8 @@ for index, site in locations_df.iterrows():
     tz = site['timezone']
 
     # times = pd.date_range('2021-06-21', '2021-6-22', freq='1min', tz=tz)
-    times = pd.date_range('2024-03-1', '2024-03-2', freq='1h', tz=tz)
+    times = pd.date_range('2024-03-1', '2024-03-1 23:00', freq='1h', tz=tz)
+    new_x = times.hour
 
     # create a location for site, and get solar position and clearsky data
     site_location = location.Location(lat, lon, tz=tz, name = site['name'])
@@ -156,15 +157,15 @@ for index, site in locations_df.iterrows():
         row = 0
 
     # plot results
-    axis1[row,col].plot(times, bpv_ac.results.ac, 'r', times, mpv_ac.results.ac, 'b')
+    axis1[row,col].plot(new_x, bpv_ac.results.ac, 'r', new_x, mpv_ac.results.ac, 'b')
     axis1[row,col].set_title(site_location.name)
     axis1[row,col].set_ylabel('AC Power (W)')
-    axis1[row,col].set_xlabel('Time')
+    axis1[row,col].set_xlabel('Time (HR)')
 
-    axis2[row,col].plot(times, bpv_dc, 'r', times, mpv_dc, 'b')
+    axis2[row,col].plot(new_x, bpv_dc, 'r', new_x, mpv_dc, 'b')
     axis2[row,col].set_title(site_location.name)
     axis2[row,col].set_ylabel('DC Power (W)')
-    axis2[row,col].set_xlabel('Time')
+    axis2[row,col].set_xlabel('Time (HR)')
 
     row += 1
 
@@ -205,6 +206,8 @@ Output Table:
 
 -------------------------------------------------------------------------------------------------------------------------------------------------
       ''')
+
+output_df.to_excel('results.xlsx',sheet_name='location_results')
 
 fig1.suptitle("AC Results")
 fig1.tight_layout()

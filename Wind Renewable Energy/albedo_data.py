@@ -15,7 +15,8 @@ warnings.filterwarnings(action='ignore', module='pvfactors')
 # using Greensboro, NC for this example
 lat, lon = 36.084, -79.817
 tz = 'Etc/GMT+5'
-times = pd.date_range('2021-06-21', '2021-06-22', freq='1h', tz=tz)
+times = pd.date_range('2024-03-1', '2024-03-1 23:00', freq='1h', tz=tz)
+new_x = times.hour
 
 # create location object and get clearsky data
 site_location = location.Location(lat, lon, tz=tz, name='Greensboro, NC')
@@ -170,16 +171,18 @@ for index, site in albedos_df.iterrows():
     if index % 4 == 0 and index != 0:
         col += 1
         row = 0
-    
-    axis1[row,col].plot(times,bpv_ac.results.ac,'r',times,mpv_ac.results.ac,'b')
+
+    axis1[row,col].plot(new_x,bpv_ac.results.ac,'r',new_x,mpv_ac.results.ac,'b')
     axis1[row,col].set_title(f'{site_name}: {albedo}')
     axis1[row,col].set_ylabel('AC Power (W)')
-    axis1[row,col].set_xlabel('Time')
+    axis1[row,col].set_xlabel('Time (HR)')
 
-    axis2[row,col].plot(times,bpv_dc,'r',times,mpv_dc,'b')
+    # axis1[row,col].set_xticklabels(times,times.hour)
+
+    axis2[row,col].plot(new_x,bpv_dc,'r',new_x,mpv_dc,'b')
     axis2[row,col].set_title(f'{site_name}: {albedo}')
     axis2[row,col].set_ylabel('AC Power (W)')
-    axis2[row,col].set_xlabel('Time')
+    axis2[row,col].set_xlabel('Time (HR)')
 
     row += 1
 
@@ -197,6 +200,7 @@ Output Table:
 -------------------------------------------------------------------------------------------------------------------------------------------------
       ''')
 
+output_df.to_excel('results.xlsx',sheet_name='albedo_results')
 
 fig1.suptitle("AC Results")
 fig1.tight_layout()
