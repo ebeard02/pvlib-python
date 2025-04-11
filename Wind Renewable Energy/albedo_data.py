@@ -181,7 +181,7 @@ for index, site in albedos_df.iterrows():
 
     axis2[row,col].plot(new_x,bpv_dc,'r',new_x,mpv_dc,'b')
     axis2[row,col].set_title(f'{site_name}: {albedo}')
-    axis2[row,col].set_ylabel('AC Power (W)')
+    axis2[row,col].set_ylabel('DC Power (W)')
     axis2[row,col].set_xlabel('Time (HR)')
 
     row += 1

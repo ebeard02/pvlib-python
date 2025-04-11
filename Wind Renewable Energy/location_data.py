@@ -22,6 +22,8 @@ warnings.filterwarnings(action='ignore', module='pvfactors')
 
 # create system locations and times as dataframes
 locations_df = pd.read_excel('module_data.xlsx', sheet_name='locations')
+locations_df = locations_df.sort_values(by='latitude',key=abs)
+locations_df = locations_df.reset_index(drop=True)
 # locations_df = pd.DataFrame.from_dict(locations)
 
 # create site system characteristics

@@ -6,19 +6,8 @@ from pvlib import pvsystem
 from pvlib.bifacial.pvfactors import pvfactors_timeseries
 import warnings
 import math
-
-col = 0
-row = 0
-
-albedos_df = pd.read_excel('module_data.xlsx', sheet_name='albedos')
-print(math.ceil(len(albedos_df['Albedo'])/4))
-for index, site in albedos_df.iterrows():
-
-   
-    if index % 4 == 0 and index != 0:
-        col += 1
-        row = 0
-
-    print(f'{row},{col}')
-    row += 1
+locations_df = pd.read_excel('module_data.xlsx', sheet_name='locations')
+locations_df = locations_df.sort_values(by='longitude',key=abs)
+locations_df = locations_df.reset_index(drop=True)
+print(locations_df)
     
